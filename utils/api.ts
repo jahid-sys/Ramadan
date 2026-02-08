@@ -139,5 +139,11 @@ export async function saveUserLocation(location: {
 
 // Get user's saved location
 export async function getUserLocation(): Promise<UserLocation | null> {
-  return apiCall<UserLocation | null>('/api/user-location');
+  try {
+    return await apiCall<UserLocation | null>('/api/user-location');
+  } catch (error) {
+    console.log('[API] getUserLocation failed, returning null:', error);
+    // Return null if the endpoint fails (e.g., no location saved or auth issues)
+    return null;
+  }
 }
