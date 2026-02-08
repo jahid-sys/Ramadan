@@ -1,5 +1,5 @@
 import type { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
-import { eq } from 'drizzle-orm';
+import { eq, desc } from 'drizzle-orm';
 import * as schema from '../db/schema.js';
 import type { App } from '../index.js';
 
@@ -67,8 +67,12 @@ async function fetchPrayerTimesFromAladhan(
   const methodCode = CALCULATION_METHODS[method as keyof typeof CALCULATION_METHODS] || 2;
 
   try {
+    // Convert date from YYYY-MM-DD to DD-MM-YYYY format for Aladhan API
+    const [year, month, day] = date.split('-');
+    const formattedDate = `${day}-${month}-${year}`;
+
     const response = await fetch(
-      `https://api.aladhan.com/v1/timings/${date.replace(/-/g, '/')}?latitude=${latitude}&longitude=${longitude}&method=${methodCode}`
+      `https://api.aladhan.com/v1/timings/${formattedDate}?latitude=${latitude}&longitude=${longitude}&method=${methodCode}`
     );
 
     if (!response.ok) {
@@ -587,32 +591,52 @@ export function register(app: App, fastify: FastifyInstance) {
     app.logger.info({}, 'Fetching user location');
 
     try {
-      // Get userId from session if authenticated
-      const session = await app.requireAuth()(request, reply);
-
       let userLocation = null;
 
-      if (session) {
+      // Try to get authenticated user session
+      try {
+        const session = await app.requireAuth()(request, reply);
+
+        if (session) {
+          const result = await app.db
+            .select()
+            .from(schema.userLocations)
+            .where(eq(schema.userLocations.userId, session.user.id));
+
+          userLocation = result[0] || null;
+
+          if (userLocation) {
+            app.logger.info(
+              { userId: session.user.id, locationId: userLocation.id },
+              'User location retrieved successfully'
+            );
+          } else {
+            app.logger.info(
+              { userId: session.user.id },
+              'No saved location found for user'
+            );
+          }
+        }
+      } catch (authError) {
+        // If auth fails, return the most recently saved location from the database
+        app.logger.info({}, 'Guest user - fetching most recently saved location');
+
         const result = await app.db
           .select()
           .from(schema.userLocations)
-          .where(eq(schema.userLocations.userId, session.user.id));
+          .orderBy(desc(schema.userLocations.updatedAt))
+          .limit(1);
 
         userLocation = result[0] || null;
 
         if (userLocation) {
           app.logger.info(
-            { userId: session.user.id, locationId: userLocation.id },
-            'User location retrieved successfully'
+            { locationId: userLocation.id },
+            'Most recently saved location retrieved for guest user'
           );
         } else {
-          app.logger.info(
-            { userId: session.user.id },
-            'No saved location found for user'
-          );
+          app.logger.info({}, 'No saved locations found in database');
         }
-      } else {
-        app.logger.info({}, 'No authenticated user, returning null for location');
       }
 
       return userLocation;
