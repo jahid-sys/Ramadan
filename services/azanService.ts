@@ -18,9 +18,6 @@ interface PrayerTime {
   arabicName: string;
 }
 
-// Azan audio URL (using a public Azan audio file)
-const AZAN_AUDIO_URL = 'https://www.islamcan.com/audio/adhan/azan.mp3';
-
 let soundObject: Audio.Sound | null = null;
 
 // Request notification permissions
@@ -61,7 +58,7 @@ export async function requestNotificationPermissions(): Promise<boolean> {
 // Play Azan audio
 export async function playAzan(): Promise<void> {
   try {
-    console.log('[AzanService] Playing Azan...');
+    console.log('[AzanService] Playing Azan notification sound...');
     
     // Stop any currently playing sound
     if (soundObject) {
@@ -70,15 +67,20 @@ export async function playAzan(): Promise<void> {
       soundObject = null;
     }
     
-    // Create and play new sound
-    const { sound } = await Audio.Sound.createAsync(
-      { uri: AZAN_AUDIO_URL },
-      { shouldPlay: true, volume: 1.0 },
-      onPlaybackStatusUpdate
-    );
+    // Play notification sound as Azan
+    // Note: For a real Azan audio, add an MP3 file to assets/azan.mp3
+    // and use: require('../assets/azan.mp3')
+    await Notifications.scheduleNotificationAsync({
+      content: {
+        title: '🕌 Prayer Time',
+        body: 'It\'s time for prayer - Allahu Akbar',
+        sound: true,
+        priority: Notifications.AndroidNotificationPriority.MAX,
+      },
+      trigger: null, // Immediate notification with sound
+    });
     
-    soundObject = sound;
-    console.log('[AzanService] Azan playback started');
+    console.log('[AzanService] Azan notification played');
   } catch (error) {
     console.error('[AzanService] Failed to play Azan:', error);
   }
@@ -107,12 +109,15 @@ function onPlaybackStatusUpdate(status: any) {
       soundObject = null;
     }
   }
+  if (status.error) {
+    console.error('[AzanService] Playback error:', status.error);
+  }
 }
 
 // Schedule notifications for all prayer times
 export async function schedulePrayerNotifications(prayerTimes: PrayerTime[]): Promise<void> {
   try {
-    console.log('[AzanService] Scheduling prayer notifications...');
+    console.log('[AzanService] Scheduling prayer notifications for', prayerTimes.length, 'prayers');
     
     // Cancel all existing notifications
     await Notifications.cancelAllScheduledNotificationsAsync();
@@ -120,10 +125,13 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTime[]): Pr
     const now = new Date();
     const currentMinutes = now.getHours() * 60 + now.getMinutes();
     
+    let scheduledCount = 0;
+    
     // Schedule notification for each prayer time
     for (const prayer of prayerTimes) {
       // Skip Sunrise (not a prayer time)
       if (prayer.name === 'Sunrise') {
+        console.log('[AzanService] Skipping Sunrise (not a prayer time)');
         continue;
       }
       
@@ -140,18 +148,21 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTime[]): Pr
         if (secondsUntilPrayer > 0) {
           await Notifications.scheduleNotificationAsync({
             content: {
-              title: `${prayer.name} Prayer Time`,
+              title: `🕌 ${prayer.name} Prayer Time`,
               body: `It's time for ${prayer.name} prayer (${prayer.arabicName})`,
               sound: true,
               priority: Notifications.AndroidNotificationPriority.HIGH,
               data: { prayerName: prayer.name, playAzan: true },
             },
             trigger: {
+              type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
               seconds: secondsUntilPrayer,
+              repeats: false,
             },
           });
           
-          console.log(`[AzanService] Scheduled notification for ${prayer.name} at ${prayer.time} (in ${secondsUntilPrayer}s)`);
+          scheduledCount++;
+          console.log(`[AzanService] ✓ Scheduled ${prayer.name} at ${prayer.time} (in ${Math.floor(secondsUntilPrayer / 60)} minutes)`);
         }
       }
     }
@@ -175,22 +186,25 @@ export async function schedulePrayerNotifications(prayerTimes: PrayerTime[]): Pr
       if (secondsUntilPrayer > 0) {
         await Notifications.scheduleNotificationAsync({
           content: {
-            title: `${prayer.name} Prayer Time`,
+            title: `🕌 ${prayer.name} Prayer Time`,
             body: `It's time for ${prayer.name} prayer (${prayer.arabicName})`,
             sound: true,
             priority: Notifications.AndroidNotificationPriority.HIGH,
             data: { prayerName: prayer.name, playAzan: true },
           },
           trigger: {
+            type: Notifications.SchedulableTriggerInputTypes.TIME_INTERVAL,
             seconds: secondsUntilPrayer,
+            repeats: false,
           },
         });
         
-        console.log(`[AzanService] Scheduled notification for ${prayer.name} tomorrow at ${prayer.time}`);
+        scheduledCount++;
+        console.log(`[AzanService] ✓ Scheduled ${prayer.name} tomorrow at ${prayer.time}`);
       }
     }
     
-    console.log('[AzanService] All prayer notifications scheduled successfully');
+    console.log(`[AzanService] Successfully scheduled ${scheduledCount} prayer notifications`);
   } catch (error) {
     console.error('[AzanService] Failed to schedule prayer notifications:', error);
   }
@@ -202,7 +216,7 @@ export function setupNotificationListener(): void {
   
   // Listen for notifications when app is in foreground
   Notifications.addNotificationReceivedListener((notification) => {
-    console.log('[AzanService] Notification received:', notification);
+    console.log('[AzanService] Notification received:', notification.request.content.title);
     const data = notification.request.content.data;
     
     if (data?.playAzan) {
@@ -213,7 +227,7 @@ export function setupNotificationListener(): void {
   
   // Listen for notification responses (when user taps notification)
   Notifications.addNotificationResponseReceivedListener((response) => {
-    console.log('[AzanService] Notification response received:', response);
+    console.log('[AzanService] Notification tapped:', response.notification.request.content.title);
     const data = response.notification.request.content.data;
     
     if (data?.playAzan) {
