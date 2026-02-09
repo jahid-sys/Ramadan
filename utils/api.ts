@@ -222,3 +222,20 @@ export async function uploadAzanAudio(audioFile: File | Blob, filename: string):
     throw error;
   }
 }
+
+// Qur'an Verse API
+export interface QuranVerseResponse {
+  id: string;
+  surahNumber: number;
+  ayahNumber: number;
+  arabicText: string;
+  englishTranslation: string;
+  surahNameArabic: string;
+  surahNameEnglish: string;
+  reference: string;
+}
+
+// Get the daily Qur'an verse
+export async function getDailyQuranVerse(): Promise<QuranVerseResponse> {
+  return apiCall<QuranVerseResponse>('/api/quran/daily-verse');
+}

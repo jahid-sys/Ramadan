@@ -1,14 +1,15 @@
 
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator, Platform, Alert } from "react-native";
-import { useTheme } from "@react-navigation/native";
-import { Stack, useRouter } from "expo-router";
-import { IconSymbol } from "@/components/IconSymbol";
-import React, { useState, useEffect } from "react";
-import { colors as appColors, typography, spacing, borderRadius } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
-import { getPrayerTimes, getUserLocation, CitySearchResult, saveUserLocation } from "@/utils/api";
+import { Stack, useRouter } from "expo-router";
 import LocationModal from "@/components/LocationModal";
+import DailyQuranVerse from "@/components/DailyQuranVerse";
+import { colors as appColors, typography, spacing, borderRadius } from "@/styles/commonStyles";
+import { useTheme } from "@react-navigation/native";
+import React, { useState, useEffect } from "react";
+import { getPrayerTimes, getUserLocation, CitySearchResult, saveUserLocation } from "@/utils/api";
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator, Platform, Alert } from "react-native";
 import * as Location from 'expo-location';
+import { IconSymbol } from "@/components/IconSymbol";
 import { 
   requestNotificationPermissions, 
   schedulePrayerNotifications, 
@@ -68,10 +69,12 @@ export default function HomeScreen() {
     });
   }, []);
 
+  // Load saved location and fetch prayer times
   useEffect(() => {
     loadLocationAndPrayerTimes();
   }, []);
 
+  // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -80,6 +83,7 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
+  // Update next prayer indicator based on current time
   useEffect(() => {
     updateNextPrayer();
   }, [currentTime, prayerTimes]);
@@ -131,6 +135,7 @@ export default function HomeScreen() {
 
       console.log('[HomeScreen] GPS coordinates:', { latitude, longitude });
 
+      // Reverse geocode to get city and country
       const geocode = await Location.reverseGeocodeAsync({
         latitude,
         longitude,
@@ -161,6 +166,7 @@ export default function HomeScreen() {
       
       console.log('[HomeScreen] Loading user location...');
       
+      // First, try to get GPS location
       const gpsLocation = await getCurrentGPSLocation();
       
       if (gpsLocation) {
@@ -192,6 +198,7 @@ export default function HomeScreen() {
         return;
       }
       
+      // If GPS fails, try to get saved location
       const savedLocation = await getUserLocation();
       
       if (savedLocation) {
@@ -209,11 +216,13 @@ export default function HomeScreen() {
         );
       } else {
         console.log('[HomeScreen] No saved location, using default (Makkah)');
+        // Use default location (Makkah)
         await fetchPrayerTimes(location.latitude, location.longitude);
       }
     } catch (err) {
       console.error('[HomeScreen] Failed to load location:', err);
       setError('Failed to load prayer times. Using default location.');
+      // Still try to fetch with default location
       await fetchPrayerTimes(location.latitude, location.longitude);
     } finally {
       setLoading(false);
@@ -403,7 +412,7 @@ export default function HomeScreen() {
         style={[styles.container, { backgroundColor: themeColors.background }]}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: 60, marginTop: 27 }]}>
           <TouchableOpacity 
             style={styles.locationContainer}
             onPress={() => setShowLocationModal(true)}
@@ -463,13 +472,8 @@ export default function HomeScreen() {
               size={24} 
               color={themeColors.primary} 
             />
-            <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>
-              Azan Notifications
-            </Text>
+            <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>Azan</Text>
           </View>
-          <Text style={[styles.azanControlSubtitle, { color: themeColors.textSecondary }]}>
-            Automatic Azan will play at each prayer time
-          </Text>
           <View style={styles.azanButtonsContainer}>
             <TouchableOpacity 
               style={[styles.azanButton, { backgroundColor: themeColors.primary }]}
@@ -481,12 +485,10 @@ export default function HomeScreen() {
                 size={20} 
                 color="#FFFFFF" 
               />
-              <Text style={styles.azanButtonText}>
-                Test Azan
-              </Text>
+              <Text style={styles.azanButtonText}>Azan</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.azanButton, { backgroundColor: themeColors.textSecondary }]}
+              style={[styles.azanButton, { backgroundColor: "#a7b5be" }]}
               onPress={handleStopAzan}
             >
               <IconSymbol 
@@ -502,17 +504,19 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.timeCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.timeCard, { backgroundColor: "#41816d" }]}>
           <Text style={[styles.hijriDate, { color: themeColors.textSecondary }]}>
             {hijriDate}
           </Text>
           <Text style={[styles.currentTime, { color: themeColors.text }]}>
             {timeString}
           </Text>
-          <Text style={[styles.currentDate, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.currentDate, { color: "#f4feff" }]}>
             {dateString}
           </Text>
         </View>
+
+        <DailyQuranVerse />
 
         <LinearGradient
           colors={[themeColors.primary, themeColors.accent]}
@@ -648,8 +652,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    paddingTop: 60,
-    paddingBottom: spacing.md,
+    paddingVertical: spacing.md,
   },
   locationContainer: {
     flexDirection: 'row',
@@ -704,15 +707,11 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
   azanControlTitle: {
     ...typography.h3,
     fontWeight: '600',
-  },
-  azanControlSubtitle: {
-    ...typography.caption,
-    marginBottom: spacing.md,
   },
   azanButtonsContainer: {
     flexDirection: 'row',

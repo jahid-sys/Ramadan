@@ -8,6 +8,7 @@ import { colors as appColors, typography, spacing, borderRadius } from "@/styles
 import { LinearGradient } from "expo-linear-gradient";
 import { getPrayerTimes, getUserLocation, CitySearchResult, saveUserLocation } from "@/utils/api";
 import LocationModal from "@/components/LocationModal";
+import DailyQuranVerse from "@/components/DailyQuranVerse";
 import * as Location from 'expo-location';
 import { 
   requestNotificationPermissions, 
@@ -529,6 +530,8 @@ export default function HomeScreen() {
             {dateString}
           </Text>
         </View>
+
+        <DailyQuranVerse />
 
         <LinearGradient
           colors={[themeColors.primary, themeColors.accent]}
