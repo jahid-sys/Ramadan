@@ -21,3 +21,14 @@ export const azanAudio = pgTable('azan_audio', {
   fileSize: integer('file_size').notNull(),
   uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
 });
+
+export const quranVerses = pgTable('quran_verses', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  surahNumber: integer('surah_number').notNull(),
+  ayahNumber: integer('ayah_number').notNull(),
+  arabicText: text('arabic_text').notNull(),
+  englishTranslation: text('english_translation').notNull(),
+  surahNameArabic: text('surah_name_arabic').notNull(),
+  surahNameEnglish: text('surah_name_english').notNull(),
+  createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
+});

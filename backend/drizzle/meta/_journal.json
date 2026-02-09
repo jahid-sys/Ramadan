@@ -15,6 +15,13 @@
       "when": 1770644530085,
       "tag": "20260209134210_giant_glorian",
       "breakpoints": true
+    },
+    {
+      "idx": 2,
+      "version": "7",
+      "when": 1770663777838,
+      "tag": "20260209190257_silly_chamber",
+      "breakpoints": true
     }
   ]
 }
