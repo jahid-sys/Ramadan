@@ -1,6 +1,6 @@
 
 import * as Notifications from 'expo-notifications';
-import { Audio } from 'expo-av';
+import { Audio } from 'expo-audio';
 import { Platform } from 'react-native';
 import { getAzanAudioUrl } from '@/utils/api';
 
@@ -43,13 +43,14 @@ export async function requestNotificationPermissions(): Promise<boolean> {
     
     console.log('[AzanService] Notification permission granted');
     
-    // Configure audio mode for playback
-    await Audio.setAudioModeAsync({
-      allowsRecordingIOS: false,
-      playsInSilentModeIOS: true,
-      staysActiveInBackground: true,
-      shouldDuckAndroid: true,
-    });
+    // Configure audio mode for playback (expo-audio)
+    try {
+      await Audio.setAudioModeAsync({
+        playsInSilentModeIOS: true,
+      });
+    } catch (audioError) {
+      console.log('[AzanService] Audio mode configuration skipped (may not be supported on this platform)');
+    }
     
     return true;
   } catch (error) {
@@ -65,8 +66,12 @@ export async function playAzan(): Promise<void> {
     
     // Stop any currently playing sound
     if (soundObject) {
-      await soundObject.stopAsync();
-      await soundObject.unloadAsync();
+      try {
+        await soundObject.pauseAsync();
+        await soundObject.unloadAsync();
+      } catch (stopError) {
+        console.log('[AzanService] Error stopping previous sound:', stopError);
+      }
       soundObject = null;
     }
     
@@ -81,24 +86,39 @@ export async function playAzan(): Promise<void> {
     if (cachedAzanUrl && cachedAzanUrl.trim() !== '' && cachedAzanData) {
       console.log('[AzanService] Playing uploaded Azan audio from:', cachedAzanUrl);
       
-      // Configure audio mode for playback
-      await Audio.setAudioModeAsync({
-        allowsRecordingIOS: false,
-        playsInSilentModeIOS: true,
-        staysActiveInBackground: true,
-        shouldDuckAndroid: true,
-        playThroughEarpieceAndroid: false,
-      });
+      // Configure audio mode for playback (expo-audio)
+      try {
+        await Audio.setAudioModeAsync({
+          playsInSilentModeIOS: true,
+        });
+      } catch (audioError) {
+        console.log('[AzanService] Audio mode configuration skipped');
+      }
       
-      // Create and play the sound
-      const { sound } = await Audio.Sound.createAsync(
-        { uri: cachedAzanUrl },
-        { shouldPlay: true, isLooping: false, volume: 1.0 },
-        onPlaybackStatusUpdate
-      );
-      
-      soundObject = sound;
-      console.log('[AzanService] Azan audio playback started');
+      // Create and play the sound using expo-audio
+      try {
+        const sound = await Audio.Sound.createAsync(
+          { uri: cachedAzanUrl },
+          { shouldPlay: true, volume: 1.0 }
+        );
+        
+        soundObject = sound.sound;
+        console.log('[AzanService] Azan audio playback started');
+        
+        // Listen for playback completion
+        soundObject.setOnPlaybackStatusUpdate((status) => {
+          if (status.isLoaded && status.didJustFinish) {
+            console.log('[AzanService] Azan playback finished');
+            if (soundObject) {
+              soundObject.unloadAsync();
+              soundObject = null;
+            }
+          }
+        });
+      } catch (playError) {
+        console.error('[AzanService] Failed to create/play audio:', playError);
+        throw playError;
+      }
       
       // Also show a notification
       await Notifications.scheduleNotificationAsync({
@@ -125,7 +145,7 @@ export async function playAzan(): Promise<void> {
       });
     }
     
-    console.log('[AzanService] Azan playback completed');
+    console.log('[AzanService] Azan playback initiated');
   } catch (error) {
     console.error('[AzanService] Failed to play Azan:', error);
     
@@ -151,26 +171,12 @@ export async function stopAzan(): Promise<void> {
   try {
     if (soundObject) {
       console.log('[AzanService] Stopping Azan...');
-      await soundObject.stopAsync();
+      await soundObject.pauseAsync();
       await soundObject.unloadAsync();
       soundObject = null;
     }
   } catch (error) {
     console.error('[AzanService] Failed to stop Azan:', error);
-  }
-}
-
-// Playback status update callback
-function onPlaybackStatusUpdate(status: any) {
-  if (status.didJustFinish) {
-    console.log('[AzanService] Azan playback finished');
-    if (soundObject) {
-      soundObject.unloadAsync();
-      soundObject = null;
-    }
-  }
-  if (status.error) {
-    console.error('[AzanService] Playback error:', status.error);
   }
 }
 
