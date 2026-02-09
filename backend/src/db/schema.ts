@@ -1,4 +1,4 @@
-import { pgTable, text, timestamp, uuid, decimal } from 'drizzle-orm/pg-core';
+import { pgTable, text, timestamp, uuid, decimal, integer } from 'drizzle-orm/pg-core';
 
 export const userLocations = pgTable('user_locations', {
   id: uuid('id').primaryKey().defaultRandom(),
@@ -11,4 +11,13 @@ export const userLocations = pgTable('user_locations', {
   calculationMethod: text('calculation_method').default('MWL').notNull(),
   createdAt: timestamp('created_at', { withTimezone: true }).defaultNow().notNull(),
   updatedAt: timestamp('updated_at', { withTimezone: true }).defaultNow().notNull(),
+});
+
+export const azanAudio = pgTable('azan_audio', {
+  id: uuid('id').primaryKey().defaultRandom(),
+  filename: text('filename').notNull(),
+  storageKey: text('storage_key').notNull(),
+  mimetype: text('mimetype').notNull(),
+  fileSize: integer('file_size').notNull(),
+  uploadedAt: timestamp('uploaded_at', { withTimezone: true }).defaultNow().notNull(),
 });
