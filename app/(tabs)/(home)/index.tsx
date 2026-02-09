@@ -426,7 +426,7 @@ export default function HomeScreen() {
         style={[styles.container, { backgroundColor: themeColors.background }]}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 0 }]}>
+        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 0, marginTop: 27 }]}>
           <TouchableOpacity 
             style={styles.locationContainer}
             onPress={() => setShowLocationModal(true)}
