@@ -1,12 +1,14 @@
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator } from "react-native";
+
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator, Alert } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
 import React, { useState, useEffect } from "react";
 import { colors as appColors, typography, spacing, borderRadius } from "@/styles/commonStyles";
 import { LinearGradient } from "expo-linear-gradient";
-import { getPrayerTimes, getUserLocation, CitySearchResult } from "@/utils/api";
+import { getPrayerTimes, getUserLocation, CitySearchResult, saveUserLocation } from "@/utils/api";
 import LocationModal from "@/components/LocationModal";
+import * as Location from 'expo-location';
 
 interface PrayerTime {
   name: string;
@@ -41,13 +43,12 @@ export default function HomeScreen() {
   ]);
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
 
-  // Load saved location and fetch prayer times
   useEffect(() => {
     loadLocationAndPrayerTimes();
   }, []);
 
-  // Update current time every second
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentTime(new Date());
@@ -56,10 +57,71 @@ export default function HomeScreen() {
     return () => clearInterval(timer);
   }, []);
 
-  // Update next prayer indicator based on current time
   useEffect(() => {
     updateNextPrayer();
   }, [currentTime, prayerTimes]);
+
+  const requestLocationPermission = async (): Promise<boolean> => {
+    try {
+      console.log('[HomeScreen] Requesting location permission...');
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      
+      if (status !== 'granted') {
+        console.log('[HomeScreen] Location permission denied');
+        setError('Location permission denied. Please enable location access in settings to use GPS.');
+        return false;
+      }
+      
+      console.log('[HomeScreen] Location permission granted');
+      setLocationPermissionGranted(true);
+      return true;
+    } catch (err) {
+      console.error('[HomeScreen] Failed to request location permission:', err);
+      setError('Failed to request location permission.');
+      return false;
+    }
+  };
+
+  const getCurrentGPSLocation = async (): Promise<{ latitude: number; longitude: number; city: string; country: string } | null> => {
+    try {
+      console.log('[HomeScreen] Getting current GPS location...');
+      
+      const hasPermission = await requestLocationPermission();
+      if (!hasPermission) {
+        return null;
+      }
+
+      const locationData = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+
+      const latitude = locationData.coords.latitude;
+      const longitude = locationData.coords.longitude;
+
+      console.log('[HomeScreen] GPS coordinates:', { latitude, longitude });
+
+      const geocode = await Location.reverseGeocodeAsync({
+        latitude,
+        longitude,
+      });
+
+      if (geocode && geocode.length > 0) {
+        const place = geocode[0];
+        const city = place.city || place.subregion || place.region || 'Unknown';
+        const country = place.country || 'Unknown';
+
+        console.log('[HomeScreen] Reverse geocoded location:', { city, country });
+
+        return { latitude, longitude, city, country };
+      }
+
+      return { latitude, longitude, city: 'Unknown', country: 'Unknown' };
+    } catch (err) {
+      console.error('[HomeScreen] Failed to get GPS location:', err);
+      setError('Failed to get your current location. Please try again or select manually.');
+      return null;
+    }
+  };
 
   const loadLocationAndPrayerTimes = async () => {
     try {
@@ -68,7 +130,30 @@ export default function HomeScreen() {
       
       console.log('[HomeScreen] Loading user location...');
       
-      // Try to get saved location
+      const gpsLocation = await getCurrentGPSLocation();
+      
+      if (gpsLocation) {
+        console.log('[HomeScreen] Using GPS location:', gpsLocation);
+        
+        await saveUserLocation({
+          city: gpsLocation.city,
+          country: gpsLocation.country,
+          latitude: gpsLocation.latitude,
+          longitude: gpsLocation.longitude,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+        
+        setLocation({
+          city: gpsLocation.city,
+          country: gpsLocation.country,
+          latitude: gpsLocation.latitude,
+          longitude: gpsLocation.longitude,
+        });
+        
+        await fetchPrayerTimes(gpsLocation.latitude, gpsLocation.longitude);
+        return;
+      }
+      
       const savedLocation = await getUserLocation();
       
       if (savedLocation) {
@@ -86,13 +171,11 @@ export default function HomeScreen() {
         );
       } else {
         console.log('[HomeScreen] No saved location, using default (Makkah)');
-        // Use default location (Makkah)
         await fetchPrayerTimes(location.latitude, location.longitude);
       }
     } catch (err) {
       console.error('[HomeScreen] Failed to load location:', err);
       setError('Failed to load prayer times. Using default location.');
-      // Still try to fetch with default location
       await fetchPrayerTimes(location.latitude, location.longitude);
     } finally {
       setLoading(false);
@@ -102,7 +185,7 @@ export default function HomeScreen() {
   const fetchPrayerTimes = async (latitude: number, longitude: number) => {
     try {
       const today = new Date();
-      const dateString = today.toISOString().split('T')[0]; // YYYY-MM-DD format
+      const dateString = today.toISOString().split('T')[0];
       
       console.log('[HomeScreen] Fetching prayer times for:', { latitude, longitude, date: dateString });
       
@@ -110,10 +193,8 @@ export default function HomeScreen() {
       
       console.log('[HomeScreen] Received prayer times:', times);
       
-      // Update hijri date
       setHijriDate(times.hijriDate);
       
-      // Map API response to prayer times array
       const newPrayerTimes: PrayerTime[] = [
         { name: 'Fajr', time: times.fajr, arabicName: 'الفجر' },
         { name: 'Sunrise', time: times.sunrise, arabicName: 'الشروق' },
@@ -146,13 +227,11 @@ export default function HomeScreen() {
       };
     });
     
-    // Find the next prayer
     const nextPrayerIndex = updatedTimes.findIndex(p => !p.isPassed);
     if (nextPrayerIndex !== -1) {
       updatedTimes[nextPrayerIndex].isNext = true;
     }
     
-    // Only update if there's a change
     const hasChanged = updatedTimes.some((prayer, index) => 
       prayer.isNext !== prayerTimes[index].isNext || 
       prayer.isPassed !== prayerTimes[index].isPassed
@@ -173,7 +252,6 @@ export default function HomeScreen() {
       longitude: selectedLocation.longitude,
     });
     
-    // Fetch new prayer times
     setLoading(true);
     try {
       await fetchPrayerTimes(selectedLocation.latitude, selectedLocation.longitude);
@@ -181,6 +259,41 @@ export default function HomeScreen() {
     } catch (err) {
       console.error('[HomeScreen] Failed to fetch prayer times for new location:', err);
       setError('Failed to fetch prayer times for selected location.');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const handleUseCurrentLocation = async () => {
+    console.log('[HomeScreen] User requested current GPS location');
+    setLoading(true);
+    setError(null);
+    
+    try {
+      const gpsLocation = await getCurrentGPSLocation();
+      
+      if (gpsLocation) {
+        await saveUserLocation({
+          city: gpsLocation.city,
+          country: gpsLocation.country,
+          latitude: gpsLocation.latitude,
+          longitude: gpsLocation.longitude,
+          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+        });
+        
+        setLocation({
+          city: gpsLocation.city,
+          country: gpsLocation.country,
+          latitude: gpsLocation.latitude,
+          longitude: gpsLocation.longitude,
+        });
+        
+        await fetchPrayerTimes(gpsLocation.latitude, gpsLocation.longitude);
+        setShowLocationModal(false);
+      }
+    } catch (err) {
+      console.error('[HomeScreen] Failed to use current location:', err);
+      setError('Failed to get your current location. Please try again.');
     } finally {
       setLoading(false);
     }
@@ -216,6 +329,9 @@ export default function HomeScreen() {
         />
         <View style={[styles.container, { backgroundColor: themeColors.background }]}>
           <ActivityIndicator size="large" color={themeColors.primary} />
+          <Text style={[styles.loadingText, { color: themeColors.text }]}>
+            Loading prayer times...
+          </Text>
         </View>
       </>
     );
@@ -232,7 +348,6 @@ export default function HomeScreen() {
         style={[styles.container, { backgroundColor: themeColors.background }]}
         contentContainerStyle={styles.scrollContent}
       >
-        {/* Header with Location */}
         <View style={styles.header}>
           <TouchableOpacity 
             style={styles.locationContainer}
@@ -262,18 +377,17 @@ export default function HomeScreen() {
           </TouchableOpacity>
           <TouchableOpacity 
             style={[styles.settingsButton, { backgroundColor: themeColors.card }]}
-            onPress={() => loadLocationAndPrayerTimes()}
+            onPress={handleUseCurrentLocation}
           >
             <IconSymbol 
-              ios_icon_name="arrow.clockwise" 
-              android_material_icon_name="refresh" 
+              ios_icon_name="location.circle.fill" 
+              android_material_icon_name="my-location" 
               size={20} 
               color={themeColors.text} 
             />
           </TouchableOpacity>
         </View>
 
-        {/* Error Message */}
         {error && (
           <View style={[styles.errorBanner, { backgroundColor: '#FFE5E5' }]}>
             <IconSymbol 
@@ -286,7 +400,6 @@ export default function HomeScreen() {
           </View>
         )}
 
-        {/* Current Time Card */}
         <View style={[styles.timeCard, { backgroundColor: themeColors.card }]}>
           <Text style={[styles.hijriDate, { color: themeColors.textSecondary }]}>
             {hijriDate}
@@ -299,7 +412,6 @@ export default function HomeScreen() {
           </Text>
         </View>
 
-        {/* Next Prayer Card */}
         <LinearGradient
           colors={[themeColors.primary, themeColors.accent]}
           start={{ x: 0, y: 0 }}
@@ -317,7 +429,6 @@ export default function HomeScreen() {
           </Text>
         </LinearGradient>
 
-        {/* Ramadan Special Times */}
         <View style={styles.ramadanTimesContainer}>
           <View style={[styles.ramadanTimeCard, { backgroundColor: themeColors.card }]}>
             <View style={styles.ramadanTimeHeader}>
@@ -360,7 +471,6 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        {/* All Prayer Times */}
         <View style={styles.prayerTimesContainer}>
           <Text style={[styles.sectionTitle, { color: themeColors.text }]}>
             Prayer Times
@@ -412,15 +522,14 @@ export default function HomeScreen() {
           })}
         </View>
 
-        {/* Bottom Spacing */}
         <View style={{ height: 100 }} />
       </ScrollView>
 
-      {/* Location Selection Modal */}
       <LocationModal
         visible={showLocationModal}
         onClose={() => setShowLocationModal(false)}
         onLocationSelected={handleLocationSelected}
+        onUseCurrentLocation={handleUseCurrentLocation}
       />
     </>
   );
@@ -472,6 +581,11 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
+  },
+  loadingText: {
+    ...typography.body,
+    marginTop: spacing.md,
+    textAlign: 'center',
   },
   timeCard: {
     padding: spacing.lg,

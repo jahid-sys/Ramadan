@@ -1,5 +1,4 @@
 
-import React, { useState, useEffect } from 'react';
 import {
   Modal,
   View,
@@ -13,16 +12,18 @@ import {
   Platform,
 } from 'react-native';
 import { IconSymbol } from './IconSymbol';
-import { colors as appColors, typography, spacing, borderRadius } from '@/styles/commonStyles';
 import { searchCities, CitySearchResult, saveUserLocation } from '@/utils/api';
+import { colors as appColors, typography, spacing, borderRadius } from '@/styles/commonStyles';
+import React, { useState, useEffect } from 'react';
 
 interface LocationModalProps {
   visible: boolean;
   onClose: () => void;
   onLocationSelected: (location: CitySearchResult) => void;
+  onUseCurrentLocation?: () => void;
 }
 
-export default function LocationModal({ visible, onClose, onLocationSelected }: LocationModalProps) {
+export default function LocationModal({ visible, onClose, onLocationSelected, onUseCurrentLocation }: LocationModalProps) {
   const colorScheme = useColorScheme();
   const themeColors = colorScheme === 'dark' ? appColors.dark : appColors.light;
   
@@ -31,44 +32,47 @@ export default function LocationModal({ visible, onClose, onLocationSelected }: 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Debounced search
   useEffect(() => {
-    if (searchQuery.length < 2) {
-      setSearchResults([]);
-      return;
-    }
-
-    const timer = setTimeout(async () => {
-      setLoading(true);
-      setError(null);
-      
-      try {
-        console.log('[LocationModal] Searching for:', searchQuery);
-        const results = await searchCities(searchQuery);
-        setSearchResults(results);
-      } catch (err) {
-        console.error('[LocationModal] Search error:', err);
-        setError('Failed to search cities. Please try again.');
-      } finally {
-        setLoading(false);
+    const delayDebounceFn = setTimeout(() => {
+      if (searchQuery.trim().length >= 2) {
+        handleSearch(searchQuery);
+      } else {
+        setSearchResults([]);
       }
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => clearTimeout(delayDebounceFn);
   }, [searchQuery]);
+
+  const handleSearch = async (query: string) => {
+    try {
+      setLoading(true);
+      setError(null);
+      console.log('[LocationModal] Searching for cities:', query);
+      
+      const results = await searchCities(query);
+      console.log('[LocationModal] Search results:', results);
+      
+      setSearchResults(results);
+    } catch (err) {
+      console.error('[LocationModal] Search failed:', err);
+      setError('Failed to search cities. Please try again.');
+      setSearchResults([]);
+    } finally {
+      setLoading(false);
+    }
+  };
 
   const handleSelectCity = async (city: CitySearchResult) => {
     try {
-      console.log('[LocationModal] Selected city:', city);
+      console.log('[LocationModal] City selected:', city);
       
-      // Save location to backend
       await saveUserLocation({
-        country: city.country,
         city: city.city,
+        country: city.country,
         latitude: city.latitude,
         longitude: city.longitude,
-        timezone: city.timezone,
-        calculationMethod: 'MWL',
+        timezone: city.timezone || Intl.DateTimeFormat().resolvedOptions().timeZone,
       });
       
       onLocationSelected(city);
@@ -81,6 +85,15 @@ export default function LocationModal({ visible, onClose, onLocationSelected }: 
     }
   };
 
+  const handleUseCurrentLocationPress = () => {
+    if (onUseCurrentLocation) {
+      onUseCurrentLocation();
+      onClose();
+      setSearchQuery('');
+      setSearchResults([]);
+    }
+  };
+
   return (
     <Modal
       visible={visible}
@@ -90,28 +103,43 @@ export default function LocationModal({ visible, onClose, onLocationSelected }: 
     >
       <View style={styles.modalOverlay}>
         <View style={[styles.modalContent, { backgroundColor: themeColors.background }]}>
-          {/* Header */}
           <View style={styles.modalHeader}>
             <Text style={[styles.modalTitle, { color: themeColors.text }]}>
               Select Location
             </Text>
             <TouchableOpacity onPress={onClose} style={styles.closeButton}>
-              <IconSymbol
-                ios_icon_name="xmark.circle.fill"
-                android_material_icon_name="close"
-                size={28}
-                color={themeColors.textSecondary}
+              <IconSymbol 
+                ios_icon_name="xmark" 
+                android_material_icon_name="close" 
+                size={24} 
+                color={themeColors.text} 
               />
             </TouchableOpacity>
           </View>
 
-          {/* Search Input */}
+          {onUseCurrentLocation && (
+            <TouchableOpacity
+              style={[styles.currentLocationButton, { backgroundColor: themeColors.primary }]}
+              onPress={handleUseCurrentLocationPress}
+            >
+              <IconSymbol 
+                ios_icon_name="location.circle.fill" 
+                android_material_icon_name="my-location" 
+                size={24} 
+                color="#FFFFFF" 
+              />
+              <Text style={styles.currentLocationButtonText}>
+                Use Current Location
+              </Text>
+            </TouchableOpacity>
+          )}
+
           <View style={[styles.searchContainer, { backgroundColor: themeColors.card }]}>
-            <IconSymbol
-              ios_icon_name="magnifyingglass"
-              android_material_icon_name="search"
-              size={20}
-              color={themeColors.textSecondary}
+            <IconSymbol 
+              ios_icon_name="magnifyingglass" 
+              android_material_icon_name="search" 
+              size={20} 
+              color={themeColors.textSecondary} 
             />
             <TextInput
               style={[styles.searchInput, { color: themeColors.text }]}
@@ -119,91 +147,108 @@ export default function LocationModal({ visible, onClose, onLocationSelected }: 
               placeholderTextColor={themeColors.textSecondary}
               value={searchQuery}
               onChangeText={setSearchQuery}
-              autoFocus
+              autoCapitalize="words"
+              autoCorrect={false}
             />
+            {searchQuery.length > 0 && (
+              <TouchableOpacity onPress={() => setSearchQuery('')}>
+                <IconSymbol 
+                  ios_icon_name="xmark.circle.fill" 
+                  android_material_icon_name="cancel" 
+                  size={20} 
+                  color={themeColors.textSecondary} 
+                />
+              </TouchableOpacity>
+            )}
           </View>
 
-          {/* Error Message */}
           {error && (
             <View style={[styles.errorContainer, { backgroundColor: '#FFE5E5' }]}>
+              <IconSymbol 
+                ios_icon_name="exclamationmark.triangle.fill" 
+                android_material_icon_name="warning" 
+                size={20} 
+                color="#D32F2F" 
+              />
               <Text style={styles.errorText}>{error}</Text>
             </View>
           )}
 
-          {/* Loading Indicator */}
           {loading && (
             <View style={styles.loadingContainer}>
               <ActivityIndicator size="large" color={themeColors.primary} />
             </View>
           )}
 
-          {/* Search Results */}
-          {!loading && searchResults.length > 0 && (
-            <FlatList
-              data={searchResults}
-              keyExtractor={(item, index) => `${item.city}-${item.country}-${index}`}
-              renderItem={({ item }) => (
-                <TouchableOpacity
-                  style={[styles.cityItem, { backgroundColor: themeColors.card }]}
-                  onPress={() => handleSelectCity(item)}
-                >
-                  <View style={styles.cityInfo}>
-                    <IconSymbol
-                      ios_icon_name="location.fill"
-                      android_material_icon_name="location-on"
-                      size={24}
-                      color={themeColors.primary}
-                    />
-                    <View style={styles.cityTextContainer}>
-                      <Text style={[styles.cityName, { color: themeColors.text }]}>
-                        {item.city}
-                      </Text>
-                      <Text style={[styles.countryName, { color: themeColors.textSecondary }]}>
-                        {item.country}
-                      </Text>
-                    </View>
-                  </View>
-                  <IconSymbol
-                    ios_icon_name="chevron.right"
-                    android_material_icon_name="chevron-right"
-                    size={20}
-                    color={themeColors.textSecondary}
-                  />
-                </TouchableOpacity>
-              )}
-              style={styles.resultsList}
-            />
-          )}
-
-          {/* Empty State */}
-          {!loading && searchQuery.length >= 2 && searchResults.length === 0 && (
-            <View style={styles.emptyState}>
-              <IconSymbol
-                ios_icon_name="magnifyingglass"
-                android_material_icon_name="search"
-                size={48}
-                color={themeColors.textSecondary}
+          {!loading && searchResults.length === 0 && searchQuery.trim().length >= 2 && (
+            <View style={styles.emptyContainer}>
+              <IconSymbol 
+                ios_icon_name="magnifyingglass" 
+                android_material_icon_name="search" 
+                size={48} 
+                color={themeColors.textSecondary} 
               />
-              <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
+              <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
                 No cities found
               </Text>
-            </View>
-          )}
-
-          {/* Initial State */}
-          {!loading && searchQuery.length < 2 && (
-            <View style={styles.emptyState}>
-              <IconSymbol
-                ios_icon_name="location.circle"
-                android_material_icon_name="location-searching"
-                size={48}
-                color={themeColors.textSecondary}
-              />
-              <Text style={[styles.emptyStateText, { color: themeColors.textSecondary }]}>
-                Type at least 2 characters to search
+              <Text style={[styles.emptySubtext, { color: themeColors.textSecondary }]}>
+                Try a different search term
               </Text>
             </View>
           )}
+
+          {!loading && searchResults.length === 0 && searchQuery.trim().length < 2 && (
+            <View style={styles.emptyContainer}>
+              <IconSymbol 
+                ios_icon_name="location.fill" 
+                android_material_icon_name="location-on" 
+                size={48} 
+                color={themeColors.textSecondary} 
+              />
+              <Text style={[styles.emptyText, { color: themeColors.textSecondary }]}>
+                Search for your city
+              </Text>
+              <Text style={[styles.emptySubtext, { color: themeColors.textSecondary }]}>
+                Type at least 2 characters
+              </Text>
+            </View>
+          )}
+
+          <FlatList
+            data={searchResults}
+            keyExtractor={(item, index) => `${item.city}-${item.country}-${index}`}
+            renderItem={({ item }) => (
+              <TouchableOpacity
+                style={[styles.cityItem, { backgroundColor: themeColors.card }]}
+                onPress={() => handleSelectCity(item)}
+              >
+                <View style={styles.cityItemContent}>
+                  <IconSymbol 
+                    ios_icon_name="location.fill" 
+                    android_material_icon_name="location-on" 
+                    size={20} 
+                    color={themeColors.primary} 
+                  />
+                  <View style={styles.cityTextContainer}>
+                    <Text style={[styles.cityName, { color: themeColors.text }]}>
+                      {item.city}
+                    </Text>
+                    <Text style={[styles.countryName, { color: themeColors.textSecondary }]}>
+                      {item.country}
+                    </Text>
+                  </View>
+                </View>
+                <IconSymbol 
+                  ios_icon_name="chevron.right" 
+                  android_material_icon_name="chevron-right" 
+                  size={20} 
+                  color={themeColors.textSecondary} 
+                />
+              </TouchableOpacity>
+            )}
+            style={styles.resultsList}
+            contentContainerStyle={styles.resultsListContent}
+          />
         </View>
       </View>
     </Modal>
@@ -221,7 +266,6 @@ const styles = StyleSheet.create({
     borderTopRightRadius: borderRadius.xl,
     paddingTop: spacing.lg,
     paddingHorizontal: spacing.md,
-    paddingBottom: Platform.OS === 'ios' ? spacing.xl : spacing.lg,
     maxHeight: '80%',
   },
   modalHeader: {
@@ -236,36 +280,67 @@ const styles = StyleSheet.create({
   closeButton: {
     padding: spacing.xs,
   },
+  currentLocationButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.sm,
+    padding: spacing.md,
+    borderRadius: borderRadius.md,
+    marginBottom: spacing.md,
+  },
+  currentLocationButtonText: {
+    ...typography.body,
+    color: '#FFFFFF',
+    fontWeight: '600',
+  },
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: spacing.md,
-    paddingVertical: spacing.sm,
+    gap: spacing.sm,
+    padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
-    gap: spacing.sm,
   },
   searchInput: {
     flex: 1,
     ...typography.body,
-    paddingVertical: spacing.xs,
+    padding: 0,
   },
   errorContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
     padding: spacing.md,
     borderRadius: borderRadius.md,
     marginBottom: spacing.md,
   },
   errorText: {
-    ...typography.body,
+    ...typography.caption,
     color: '#D32F2F',
-    textAlign: 'center',
+    flex: 1,
   },
   loadingContainer: {
     padding: spacing.xl,
     alignItems: 'center',
   },
+  emptyContainer: {
+    padding: spacing.xl,
+    alignItems: 'center',
+    gap: spacing.sm,
+  },
+  emptyText: {
+    ...typography.body,
+    fontWeight: '600',
+  },
+  emptySubtext: {
+    ...typography.caption,
+  },
   resultsList: {
     flex: 1,
+  },
+  resultsListContent: {
+    paddingBottom: spacing.xl,
   },
   cityItem: {
     flexDirection: 'row',
@@ -275,10 +350,10 @@ const styles = StyleSheet.create({
     borderRadius: borderRadius.md,
     marginBottom: spacing.sm,
   },
-  cityInfo: {
+  cityItemContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: spacing.md,
+    gap: spacing.sm,
     flex: 1,
   },
   cityTextContainer: {
@@ -291,16 +366,5 @@ const styles = StyleSheet.create({
   },
   countryName: {
     ...typography.caption,
-  },
-  emptyState: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingVertical: spacing.xxl,
-    gap: spacing.md,
-  },
-  emptyStateText: {
-    ...typography.body,
-    textAlign: 'center',
   },
 });

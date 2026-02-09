@@ -364,6 +364,3 @@ export const setupErrorLogging = () => {
 if (__DEV__) {
   setupErrorLogging();
 }
-
-// Export a dummy to ensure this file is treated as a module
-export default setupErrorLogging;
