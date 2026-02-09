@@ -158,3 +158,67 @@ export async function getUserLocation(): Promise<UserLocation | null> {
     return null;
   }
 }
+
+// Azan Audio API
+export interface AzanAudioResponse {
+  url: string;
+  filename?: string | null;
+  uploadedAt?: string | null;
+}
+
+export interface AzanAudioUploadResponse {
+  url: string;
+  filename: string;
+  uploadedAt: string;
+}
+
+// Get the uploaded Azan audio URL
+export async function getAzanAudioUrl(): Promise<AzanAudioResponse | null> {
+  try {
+    const response = await apiCall<AzanAudioResponse>('/api/azan-audio');
+    return response;
+  } catch (error) {
+    console.log('[API] getAzanAudioUrl failed, returning null:', error);
+    return null;
+  }
+}
+
+// Upload or update Azan audio file
+export async function uploadAzanAudio(audioFile: File | Blob, filename: string): Promise<AzanAudioUploadResponse> {
+  const url = `${BACKEND_URL}/api/azan-audio/upload`;
+  
+  console.log(`[API] POST ${url} - Uploading audio file: ${filename}`);
+  
+  try {
+    const formData = new FormData();
+    formData.append('audio', audioFile, filename);
+
+    const response = await fetch(url, {
+      method: 'POST',
+      body: formData,
+      // Don't set Content-Type header - let the browser set it with boundary for multipart/form-data
+    });
+
+    if (!response.ok) {
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        const errorText = await response.text();
+        if (!errorText.includes('<!DOCTYPE') && !errorText.includes('<html')) {
+          errorMessage = errorText.substring(0, 100);
+        }
+      }
+      console.error(`[API] Error ${response.status}:`, errorMessage);
+      throw new Error(`Upload failed: ${errorMessage}`);
+    }
+
+    const data = await response.json();
+    console.log(`[API] Upload success:`, data);
+    return data;
+  } catch (error) {
+    console.error('[API] Upload request failed:', error);
+    throw error;
+  }
+}

@@ -14,7 +14,8 @@ import {
   schedulePrayerNotifications, 
   setupNotificationListener,
   playAzan,
-  stopAzan
+  stopAzan,
+  getAzanAudioInfo
 } from "@/services/azanService";
 
 interface PrayerTime {
@@ -52,6 +53,7 @@ export default function HomeScreen() {
   const [error, setError] = useState<string | null>(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
   const [azanEnabled, setAzanEnabled] = useState(true);
+  const [azanAudioInfo, setAzanAudioInfo] = useState<{ url: string; filename?: string | null } | null>(null);
 
   // Initialize notification listener on mount
   useEffect(() => {
@@ -67,7 +69,20 @@ export default function HomeScreen() {
         setError('Please enable notifications to hear the Azan at prayer times.');
       }
     });
+
+    // Load Azan audio info
+    loadAzanAudioInfo();
   }, []);
+
+  const loadAzanAudioInfo = async () => {
+    try {
+      const info = await getAzanAudioInfo();
+      setAzanAudioInfo(info);
+      console.log('[HomeScreen] Azan audio info loaded:', info);
+    } catch (error) {
+      console.error('[HomeScreen] Failed to load Azan audio info:', error);
+    }
+  };
 
   // Load saved location and fetch prayer times
   useEffect(() => {
@@ -476,9 +491,39 @@ export default function HomeScreen() {
               Azan Notifications
             </Text>
           </View>
-          <Text style={[styles.azanControlSubtitle, { color: themeColors.textSecondary }]}>
-            Automatic Azan will play at each prayer time
-          </Text>
+          {azanAudioInfo && azanAudioInfo.filename ? (
+            <View style={styles.azanAudioInfoContainer}>
+              <IconSymbol 
+                ios_icon_name="checkmark.circle.fill" 
+                android_material_icon_name="check-circle" 
+                size={16} 
+                color="#4CAF50" 
+              />
+              <Text style={[styles.azanAudioInfoText, { color: themeColors.textSecondary }]}>
+                Custom Azan: {azanAudioInfo.filename}
+              </Text>
+            </View>
+          ) : (
+            <View>
+              <Text style={[styles.azanControlSubtitle, { color: themeColors.textSecondary }]}>
+                Automatic Azan will play at each prayer time
+              </Text>
+              <TouchableOpacity 
+                style={[styles.uploadPromptButton, { backgroundColor: themeColors.highlight }]}
+                onPress={() => router.push('/(tabs)/profile')}
+              >
+                <IconSymbol 
+                  ios_icon_name="arrow.up.doc" 
+                  android_material_icon_name="upload-file" 
+                  size={16} 
+                  color={themeColors.primary} 
+                />
+                <Text style={[styles.uploadPromptText, { color: themeColors.primary }]}>
+                  Upload Custom Azan Audio
+                </Text>
+              </TouchableOpacity>
+            </View>
+          )}
           <View style={styles.azanButtonsContainer}>
             <TouchableOpacity 
               style={[styles.azanButton, { backgroundColor: themeColors.primary }]}
@@ -721,6 +766,30 @@ const styles = StyleSheet.create({
   azanControlSubtitle: {
     ...typography.caption,
     marginBottom: spacing.md,
+  },
+  azanAudioInfoContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.xs,
+    marginBottom: spacing.md,
+  },
+  azanAudioInfoText: {
+    ...typography.caption,
+    flex: 1,
+  },
+  uploadPromptButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+    marginTop: spacing.xs,
+  },
+  uploadPromptText: {
+    ...typography.caption,
+    fontWeight: '600',
   },
   azanButtonsContainer: {
     flexDirection: 'row',
