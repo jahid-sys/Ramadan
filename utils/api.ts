@@ -22,9 +22,20 @@ async function apiCall<T>(endpoint: string, options?: RequestInit): Promise<T> {
     });
 
     if (!response.ok) {
-      const errorText = await response.text();
-      console.error(`[API] Error ${response.status}:`, errorText);
-      throw new Error(`API Error: ${response.status} - ${errorText}`);
+      let errorMessage = `HTTP ${response.status}`;
+      try {
+        const errorData = await response.json();
+        errorMessage = errorData.message || errorData.error || errorMessage;
+      } catch {
+        // If response is not JSON, try to get text
+        const errorText = await response.text();
+        // Don't include HTML in error message
+        if (!errorText.includes('<!DOCTYPE') && !errorText.includes('<html')) {
+          errorMessage = errorText.substring(0, 100); // Limit length
+        }
+      }
+      console.error(`[API] Error ${response.status}:`, errorMessage);
+      throw new Error(`API Error: ${response.status} - ${errorMessage}`);
     }
 
     const data = await response.json();

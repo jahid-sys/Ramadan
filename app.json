@@ -1,4 +1,3 @@
-
 {
   "expo": {
     "name": "Ramadan Keeper",
@@ -20,7 +19,9 @@
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "This app needs your location to show accurate prayer times for your area.",
         "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs your location to show accurate prayer times for your area.",
-        "UIBackgroundModes": ["audio"]
+        "UIBackgroundModes": [
+          "audio"
+        ]
       }
     },
     "android": {

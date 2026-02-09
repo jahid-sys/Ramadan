@@ -1,5 +1,5 @@
 
-import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator, Alert } from "react-native";
+import { StyleSheet, View, Text, ScrollView, TouchableOpacity, useColorScheme, ActivityIndicator, Platform, Alert } from "react-native";
 import { useTheme } from "@react-navigation/native";
 import { Stack, useRouter } from "expo-router";
 import { IconSymbol } from "@/components/IconSymbol";
@@ -404,7 +404,7 @@ export default function HomeScreen() {
         style={[styles.container, { backgroundColor: themeColors.background }]}
         contentContainerStyle={styles.scrollContent}
       >
-        <View style={styles.header}>
+        <View style={[styles.header, { paddingTop: Platform.OS === 'android' ? 48 : 0 }]}>
           <TouchableOpacity 
             style={styles.locationContainer}
             onPress={() => setShowLocationModal(true)}
