@@ -9,6 +9,13 @@ import { LinearGradient } from "expo-linear-gradient";
 import { getPrayerTimes, getUserLocation, CitySearchResult, saveUserLocation } from "@/utils/api";
 import LocationModal from "@/components/LocationModal";
 import * as Location from 'expo-location';
+import { 
+  requestNotificationPermissions, 
+  schedulePrayerNotifications, 
+  setupNotificationListener,
+  playAzan,
+  stopAzan
+} from "@/services/azanService";
 
 interface PrayerTime {
   name: string;
@@ -44,6 +51,23 @@ export default function HomeScreen() {
   const [showLocationModal, setShowLocationModal] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [locationPermissionGranted, setLocationPermissionGranted] = useState(false);
+  const [azanEnabled, setAzanEnabled] = useState(true);
+
+  // Initialize notification listener on mount
+  useEffect(() => {
+    console.log('[HomeScreen] Setting up Azan service...');
+    setupNotificationListener();
+    
+    // Request notification permissions
+    requestNotificationPermissions().then((granted) => {
+      if (granted) {
+        console.log('[HomeScreen] Notification permissions granted');
+      } else {
+        console.log('[HomeScreen] Notification permissions denied');
+        setError('Please enable notifications to hear the Azan at prayer times.');
+      }
+    });
+  }, []);
 
   useEffect(() => {
     loadLocationAndPrayerTimes();
@@ -60,6 +84,14 @@ export default function HomeScreen() {
   useEffect(() => {
     updateNextPrayer();
   }, [currentTime, prayerTimes]);
+
+  // Schedule notifications when prayer times change
+  useEffect(() => {
+    if (prayerTimes.length > 0 && azanEnabled) {
+      console.log('[HomeScreen] Scheduling Azan notifications for prayer times...');
+      schedulePrayerNotifications(prayerTimes);
+    }
+  }, [prayerTimes, azanEnabled]);
 
   const requestLocationPermission = async (): Promise<boolean> => {
     try {
@@ -313,6 +345,16 @@ export default function HomeScreen() {
     }
   };
 
+  const handleTestAzan = async () => {
+    console.log('[HomeScreen] User requested to test Azan playback');
+    await playAzan();
+  };
+
+  const handleStopAzan = async () => {
+    console.log('[HomeScreen] User requested to stop Azan playback');
+    await stopAzan();
+  };
+
   const timeString = currentTime.toLocaleTimeString('en-US', { 
     hour: '2-digit', 
     minute: '2-digit',
@@ -413,6 +455,53 @@ export default function HomeScreen() {
             <Text style={styles.errorText}>{error}</Text>
           </View>
         )}
+
+        <View style={[styles.azanControlCard, { backgroundColor: themeColors.card }]}>
+          <View style={styles.azanControlHeader}>
+            <IconSymbol 
+              ios_icon_name="speaker.wave.3.fill" 
+              android_material_icon_name="volume-up" 
+              size={24} 
+              color={themeColors.primary} 
+            />
+            <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>
+              Azan Notifications
+            </Text>
+          </View>
+          <Text style={[styles.azanControlSubtitle, { color: themeColors.textSecondary }]}>
+            Automatic Azan will play at each prayer time
+          </Text>
+          <View style={styles.azanButtonsContainer}>
+            <TouchableOpacity 
+              style={[styles.azanButton, { backgroundColor: themeColors.primary }]}
+              onPress={handleTestAzan}
+            >
+              <IconSymbol 
+                ios_icon_name="play.fill" 
+                android_material_icon_name="play-arrow" 
+                size={20} 
+                color="#FFFFFF" 
+              />
+              <Text style={styles.azanButtonText}>
+                Test Azan
+              </Text>
+            </TouchableOpacity>
+            <TouchableOpacity 
+              style={[styles.azanButton, { backgroundColor: themeColors.textSecondary }]}
+              onPress={handleStopAzan}
+            >
+              <IconSymbol 
+                ios_icon_name="stop.fill" 
+                android_material_icon_name="stop" 
+                size={20} 
+                color="#FFFFFF" 
+              />
+              <Text style={styles.azanButtonText}>
+                Stop
+              </Text>
+            </TouchableOpacity>
+          </View>
+        </View>
 
         <View style={[styles.timeCard, { backgroundColor: themeColors.card }]}>
           <Text style={[styles.hijriDate, { color: themeColors.textSecondary }]}>
@@ -600,6 +689,49 @@ const styles = StyleSheet.create({
     ...typography.body,
     marginTop: spacing.md,
     textAlign: 'center',
+  },
+  azanControlCard: {
+    padding: spacing.md,
+    borderRadius: borderRadius.lg,
+    marginBottom: spacing.md,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 8,
+    elevation: 3,
+  },
+  azanControlHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: spacing.sm,
+    marginBottom: spacing.xs,
+  },
+  azanControlTitle: {
+    ...typography.h3,
+    fontWeight: '600',
+  },
+  azanControlSubtitle: {
+    ...typography.caption,
+    marginBottom: spacing.md,
+  },
+  azanButtonsContainer: {
+    flexDirection: 'row',
+    gap: spacing.sm,
+  },
+  azanButton: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: spacing.xs,
+    paddingVertical: spacing.sm,
+    paddingHorizontal: spacing.md,
+    borderRadius: borderRadius.md,
+  },
+  azanButtonText: {
+    ...typography.body,
+    color: '#FFFFFF',
+    fontWeight: '600',
   },
   timeCard: {
     padding: spacing.lg,

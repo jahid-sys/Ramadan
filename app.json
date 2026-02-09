@@ -1,3 +1,4 @@
+
 {
   "expo": {
     "name": "Ramadan Keeper",
@@ -18,7 +19,8 @@
       "infoPlist": {
         "ITSAppUsesNonExemptEncryption": false,
         "NSLocationWhenInUseUsageDescription": "This app needs your location to show accurate prayer times for your area.",
-        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs your location to show accurate prayer times for your area."
+        "NSLocationAlwaysAndWhenInUseUsageDescription": "This app needs your location to show accurate prayer times for your area.",
+        "UIBackgroundModes": ["audio"]
       }
     },
     "android": {
@@ -30,7 +32,11 @@
       "package": "com.anonymous.Natively",
       "permissions": [
         "ACCESS_COARSE_LOCATION",
-        "ACCESS_FINE_LOCATION"
+        "ACCESS_FINE_LOCATION",
+        "POST_NOTIFICATIONS",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE",
+        "WAKE_LOCK"
       ]
     },
     "web": {
@@ -45,6 +51,14 @@
         "expo-location",
         {
           "locationAlwaysAndWhenInUsePermission": "This app needs your location to show accurate prayer times for your area."
+        }
+      ],
+      [
+        "expo-notifications",
+        {
+          "icon": "./assets/images/app-icon-dax.png",
+          "color": "#4A90E2",
+          "sounds": []
         }
       ]
     ],
