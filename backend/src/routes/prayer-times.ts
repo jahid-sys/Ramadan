@@ -492,17 +492,31 @@ export function register(app: App, fastify: FastifyInstance) {
         });
       }
 
-      // Get userId from session if authenticated
+      // Try to get userId from session if authenticated (optional)
       let userId: string | null = null;
-      const session = await app.requireAuth()(request, reply);
-      if (session) {
-        userId = session.user.id;
+      try {
+        const session = await app.requireAuth()(request, reply);
+        if (session) {
+          userId = session.user.id;
+        }
+      } catch (authError) {
+        // Auth is optional - continue as guest user
+        app.logger.info({}, 'Saving location as guest user');
       }
 
       // Check if user already has a location saved
       let existingLocation;
       if (userId) {
         const result = await app.db.select().from(schema.userLocations).where(eq(schema.userLocations.userId, userId));
+        existingLocation = result[0];
+      } else {
+        // For guest users, get the most recent guest location (userId is null)
+        const result = await app.db
+          .select()
+          .from(schema.userLocations)
+          .where(eq(schema.userLocations.userId, null))
+          .orderBy(desc(schema.userLocations.updatedAt))
+          .limit(1);
         existingLocation = result[0];
       }
 
