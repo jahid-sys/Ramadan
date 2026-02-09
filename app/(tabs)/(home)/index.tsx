@@ -488,39 +488,6 @@ export default function HomeScreen() {
             />
             <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>Azan</Text>
           </View>
-          {azanAudioInfo && azanAudioInfo.filename ? (
-            <View style={styles.azanAudioInfoContainer}>
-              <IconSymbol 
-                ios_icon_name="checkmark.circle.fill" 
-                android_material_icon_name="check-circle" 
-                size={16} 
-                color="#4CAF50" 
-              />
-              <Text style={[styles.azanAudioInfoText, { color: themeColors.textSecondary }]}>
-                Custom Azan: {azanAudioInfo.filename}
-              </Text>
-            </View>
-          ) : (
-            <View>
-              <Text style={[styles.azanControlSubtitle, { color: themeColors.textSecondary }]}>
-                Automatic Azan will play at each prayer time
-              </Text>
-              <TouchableOpacity 
-                style={[styles.uploadPromptButton, { backgroundColor: themeColors.highlight }]}
-                onPress={() => router.push('/(tabs)/profile')}
-              >
-                <IconSymbol 
-                  ios_icon_name="arrow.up.doc" 
-                  android_material_icon_name="upload-file" 
-                  size={16} 
-                  color={themeColors.primary} 
-                />
-                <Text style={[styles.uploadPromptText, { color: themeColors.primary }]}>
-                  Upload Custom Azan Audio
-                </Text>
-              </TouchableOpacity>
-            </View>
-          )}
           <View style={styles.azanButtonsContainer}>
             <TouchableOpacity 
               style={[styles.azanButton, { backgroundColor: themeColors.primary }]}
@@ -752,38 +719,10 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: spacing.sm,
-    marginBottom: spacing.xs,
+    marginBottom: spacing.md,
   },
   azanControlTitle: {
     ...typography.h3,
-    fontWeight: '600',
-  },
-  azanControlSubtitle: {
-    ...typography.caption,
-    marginBottom: spacing.md,
-  },
-  azanAudioInfoContainer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: spacing.xs,
-    marginBottom: spacing.md,
-  },
-  azanAudioInfoText: {
-    ...typography.caption,
-    flex: 1,
-  },
-  uploadPromptButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: spacing.xs,
-    paddingVertical: spacing.sm,
-    paddingHorizontal: spacing.md,
-    borderRadius: borderRadius.md,
-    marginTop: spacing.xs,
-  },
-  uploadPromptText: {
-    ...typography.caption,
     fontWeight: '600',
   },
   azanButtonsContainer: {
