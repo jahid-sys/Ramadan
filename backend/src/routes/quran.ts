@@ -275,13 +275,25 @@ export function register(app: App, fastify: FastifyInstance) {
 
     try {
       // Get all verses from database
-      const allVerses = await app.db.select().from(schema.quranVerses);
+      let allVerses = await app.db.select().from(schema.quranVerses);
 
+      // Auto-seed if database is empty
       if (allVerses.length === 0) {
-        app.logger.warn({}, 'No verses found in database');
-        return reply.code(404).send({
-          error: 'No verses available. Please seed the database first.',
-        });
+        app.logger.info({}, 'Database is empty, auto-seeding Quran verses');
+
+        // Insert seed verses
+        const insertedVerses = await app.db
+          .insert(schema.quranVerses)
+          .values(SEED_VERSES)
+          .returning();
+
+        app.logger.info(
+          { count: insertedVerses.length },
+          'Auto-seeded Quran verses successfully'
+        );
+
+        // Update allVerses with the newly inserted verses
+        allVerses = insertedVerses;
       }
 
       // Calculate day of year for deterministic verse selection
