@@ -135,13 +135,20 @@ export default function HomeScreen() {
       if (gpsLocation) {
         console.log('[HomeScreen] Using GPS location:', gpsLocation);
         
-        await saveUserLocation({
-          city: gpsLocation.city,
-          country: gpsLocation.country,
-          latitude: gpsLocation.latitude,
-          longitude: gpsLocation.longitude,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        });
+        // Try to save GPS location to backend (but don't fail if it doesn't work)
+        try {
+          await saveUserLocation({
+            city: gpsLocation.city,
+            country: gpsLocation.country,
+            latitude: gpsLocation.latitude,
+            longitude: gpsLocation.longitude,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          });
+          console.log('[HomeScreen] Successfully saved GPS location to backend');
+        } catch (saveError) {
+          console.warn('[HomeScreen] Failed to save GPS location to backend (non-critical):', saveError);
+          // Continue anyway - we can still use the location locally
+        }
         
         setLocation({
           city: gpsLocation.city,
@@ -273,13 +280,20 @@ export default function HomeScreen() {
       const gpsLocation = await getCurrentGPSLocation();
       
       if (gpsLocation) {
-        await saveUserLocation({
-          city: gpsLocation.city,
-          country: gpsLocation.country,
-          latitude: gpsLocation.latitude,
-          longitude: gpsLocation.longitude,
-          timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
-        });
+        // Try to save location to backend (but don't fail if it doesn't work)
+        try {
+          await saveUserLocation({
+            city: gpsLocation.city,
+            country: gpsLocation.country,
+            latitude: gpsLocation.latitude,
+            longitude: gpsLocation.longitude,
+            timezone: Intl.DateTimeFormat().resolvedOptions().timeZone,
+          });
+          console.log('[HomeScreen] Successfully saved location to backend');
+        } catch (saveError) {
+          console.warn('[HomeScreen] Failed to save location to backend (non-critical):', saveError);
+          // Continue anyway - we can still use the location locally
+        }
         
         setLocation({
           city: gpsLocation.city,
