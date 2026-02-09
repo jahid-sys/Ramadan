@@ -66,7 +66,6 @@ export default function HomeScreen() {
         console.log('[HomeScreen] Notification permissions granted');
       } else {
         console.log('[HomeScreen] Notification permissions denied');
-        setError('Please enable notifications to hear the Azan at prayer times.');
       }
     });
 
@@ -487,9 +486,7 @@ export default function HomeScreen() {
               size={24} 
               color={themeColors.primary} 
             />
-            <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>
-              Azan Notifications
-            </Text>
+            <Text style={[styles.azanControlTitle, { color: themeColors.text }]}>Azan</Text>
           </View>
           {azanAudioInfo && azanAudioInfo.filename ? (
             <View style={styles.azanAudioInfoContainer}>
@@ -535,12 +532,10 @@ export default function HomeScreen() {
                 size={20} 
                 color="#FFFFFF" 
               />
-              <Text style={styles.azanButtonText}>
-                Test Azan
-              </Text>
+              <Text style={styles.azanButtonText}>Azan</Text>
             </TouchableOpacity>
             <TouchableOpacity 
-              style={[styles.azanButton, { backgroundColor: themeColors.textSecondary }]}
+              style={[styles.azanButton, { backgroundColor: "#a7b5be" }]}
               onPress={handleStopAzan}
             >
               <IconSymbol 
@@ -556,14 +551,14 @@ export default function HomeScreen() {
           </View>
         </View>
 
-        <View style={[styles.timeCard, { backgroundColor: themeColors.card }]}>
+        <View style={[styles.timeCard, { backgroundColor: "#41816d" }]}>
           <Text style={[styles.hijriDate, { color: themeColors.textSecondary }]}>
             {hijriDate}
           </Text>
           <Text style={[styles.currentTime, { color: themeColors.text }]}>
             {timeString}
           </Text>
-          <Text style={[styles.currentDate, { color: themeColors.textSecondary }]}>
+          <Text style={[styles.currentDate, { color: "#f4feff" }]}>
             {dateString}
           </Text>
         </View>

@@ -64,7 +64,6 @@ export default function HomeScreen() {
         console.log('[HomeScreen] Notification permissions granted');
       } else {
         console.log('[HomeScreen] Notification permissions denied');
-        setError('Please enable notifications to hear the Azan at prayer times.');
       }
     });
   }, []);
